@@ -15,40 +15,17 @@ import {
   Th,
   Thead,
   Tr,
-  useBreakpointValue,
 } from '@chakra-ui/react';
 import { RiAddLine, RiPencilLine } from 'react-icons/ri';
 import { MdOutlineRemoveCircleOutline } from 'react-icons/md';
 import Link from 'next/link';
-import { useQuery } from 'react-query';
 import { Header } from '../../components/Header';
 import { Sidebar } from '../../components/Sidebar';
 import { Pagination } from '../../components/Pagination';
+import { useUsers } from '../../services/hooks/useUsers';
 
 export default function Users(): JSX.Element {
-  const { data, isLoading, error } = useQuery('users', async () => {
-    const response = await fetch('http://localhost:3000/api/users');
-    const responseData = await response.json();
-
-    const users = responseData.users.map(user => {
-      return {
-        id: user.id,
-        name: user.name,
-        createdAt: new Date(user.created_at).toLocaleDateString('pt-BR', {
-          day: '2-digit',
-          month: 'long',
-          year: 'numeric',
-        }),
-      };
-    });
-
-    return users;
-  });
-
-  const isWiredScreen = useBreakpointValue({
-    base: false,
-    lg: true,
-  });
+  const { data, isLoading, error, isFetching } = useUsers();
 
   return (
     <Box>
@@ -60,6 +37,9 @@ export default function Users(): JSX.Element {
           <Flex mb="8" justify="space-between" align="center">
             <Heading size="lg" fontWeight="normal">
               Usuários
+              {!isLoading && isFetching && (
+                <Spinner size="sm" color="gray.500" ml="4" />
+              )}
             </Heading>
             <Link href="/users/create" passHref>
               <Button
@@ -96,7 +76,7 @@ export default function Users(): JSX.Element {
                 </Thead>
                 <Tbody>
                   {data.map(user => (
-                    <Tr>
+                    <Tr key={user.id}>
                       <Td px={['4', '4', '6']}>
                         <Checkbox colorScheme="pink" />
                       </Td>
