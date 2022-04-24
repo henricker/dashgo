@@ -1,4 +1,4 @@
-import { useQuery } from 'react-query';
+import { useQuery, UseQueryOptions, UseQueryResult } from 'react-query';
 import { api } from '../axios';
 
 type User = {
@@ -8,15 +8,26 @@ type User = {
   createdAt: string;
 };
 
-export async function getUsers(): Promise<User[]> {
-  const { data } = await api.get('users');
+type GetUsersRequest = {
+  totalCount: number;
+  users: User[];
+};
+
+export async function getUsers(page: number): Promise<GetUsersRequest> {
+  const { data, headers } = await api.get('users', {
+    params: {
+      page,
+    },
+  });
+
+  const totalCount = Number(headers['x-total-count']);
 
   const users = data.users.map(user => {
     return {
       id: user.id,
       name: user.name,
       email: user.email,
-      createdAt: new Date(user.createdAt).toLocaleDateString('pt-BR', {
+      createdAt: new Date(user.created_at).toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: 'long',
         year: 'numeric',
@@ -24,9 +35,24 @@ export async function getUsers(): Promise<User[]> {
     };
   });
 
-  return users;
+  return {
+    users,
+    totalCount,
+  };
 }
 
-export function useUsers() {
-  return useQuery('users', getUsers, { staleTime: 1000 * 5 });
+export function useUsers(
+  page: number,
+  options?: UseQueryOptions
+): UseQueryResult<GetUsersRequest, unknown> {
+  return useQuery(
+    ['users', page],
+    () => getUsers(page),
+    {
+      staleTime: 1000 * 60 * 10, // 10 minutes
+    },
+    {
+      ...options,
+    }
+  );
 }
