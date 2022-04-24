@@ -7,6 +7,7 @@ import {
   Heading,
   HStack,
   Icon,
+  Link,
   Spinner,
   Table,
   Tbody,
@@ -18,14 +19,35 @@ import {
 } from '@chakra-ui/react';
 import { RiAddLine, RiPencilLine } from 'react-icons/ri';
 import { MdOutlineRemoveCircleOutline } from 'react-icons/md';
-import Link from 'next/link';
+import NextLink from 'next/link';
+import { useState } from 'react';
+import { GetServerSideProps, GetServerSidePropsResult } from 'next';
 import { Header } from '../../components/Header';
 import { Sidebar } from '../../components/Sidebar';
 import { Pagination } from '../../components/Pagination';
-import { useUsers } from '../../services/hooks/useUsers';
+import { getUsers, useUsers } from '../../services/hooks/useUsers';
+import { queryClient } from '../../services/queryClient';
+import { api } from '../../services/axios';
 
-export default function Users(): JSX.Element {
-  const { data, isLoading, error, isFetching } = useUsers();
+export default function Users({ users }): JSX.Element {
+  const [page, setPage] = useState(1);
+  const { data, isLoading, error, isFetching } = useUsers(page, {
+    initialData: users,
+  });
+
+  async function handlePrefetchUser(user_id: number): Promise<void> {
+    await queryClient.prefetchQuery(
+      ['user', user_id],
+      async () => {
+        const response = await api.get(`users/${user_id}`);
+
+        return response.data;
+      },
+      {
+        staleTime: 1000 * 60 * 10, // 10 minutes
+      }
+    );
+  }
 
   return (
     <Box>
@@ -41,7 +63,7 @@ export default function Users(): JSX.Element {
                 <Spinner size="sm" color="gray.500" ml="4" />
               )}
             </Heading>
-            <Link href="/users/create" passHref>
+            <NextLink href="/users/create" passHref>
               <Button
                 as="a"
                 size="sm"
@@ -51,7 +73,7 @@ export default function Users(): JSX.Element {
               >
                 Criar novo
               </Button>
-            </Link>
+            </NextLink>
           </Flex>
           {isLoading ? (
             <Flex justify="center">
@@ -75,14 +97,19 @@ export default function Users(): JSX.Element {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {data.map(user => (
+                  {data.users.map(user => (
                     <Tr key={user.id}>
                       <Td px={['4', '4', '6']}>
                         <Checkbox colorScheme="pink" />
                       </Td>
                       <Td>
                         <Box>
-                          <Text fontWeight="bold">{user.name}</Text>
+                          <Link
+                            color="purple.400"
+                            onMouseEnter={() => handlePrefetchUser(user.id)}
+                          >
+                            <Text fontWeight="bold">{user.name}</Text>
+                          </Link>
                           <Text fontSize="sm" color="gray.300">
                             {user.email}
                           </Text>
@@ -120,7 +147,11 @@ export default function Users(): JSX.Element {
                   ))}
                 </Tbody>
               </Table>
-              <Pagination />
+              <Pagination
+                onChangePage={setPage}
+                currentPage={page}
+                totalCountOfRegisters={200}
+              />
             </>
           )}
         </Box>
@@ -128,3 +159,15 @@ export default function Users(): JSX.Element {
     </Box>
   );
 }
+
+const getServerSideProps: GetServerSideProps = async (): Promise<
+  GetServerSidePropsResult<any>
+> => {
+  const { users, totalCount } = await getUsers(1);
+
+  return {
+    props: {
+      users,
+    },
+  };
+};
